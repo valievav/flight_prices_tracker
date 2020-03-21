@@ -3,18 +3,20 @@ Gets Live API results, records them into MongoDB, records into file and finds mi
 """
 
 import os
-from Flight_prices_tracker.custom_logger import create_logger
-from Flight_prices_tracker.files_cleaner import files_cleaner
-from Flight_prices_tracker.get_live_api_results import get_api_data_for_n_days
-from Flight_prices_tracker.mongodb_methods import connect_to_mongodb, find_flights_with_low_prices
-from Flight_prices_tracker.config import *
+from custom_logger import create_logger
+from files_cleaner import files_cleaner
+from get_live_api_results import get_api_data_for_n_days
+from mongodb_methods import connect_to_mongodb, find_flights_with_low_prices
+from config import *
 
 
 def main():
 
     # create logger
     cwd = os.getcwd()
-    logger = create_logger(os.path.join(cwd, log_files_folder, log_file))
+    log_file_folder_path = os.path.join(cwd, log_files_folder)
+    logger = create_logger(log_file_folder_path=log_file_folder_path,
+                           log_file_name=log_file)
 
     # connect to db
     collection = connect_to_mongodb(mongodb_instance=instance,

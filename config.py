@@ -1,5 +1,5 @@
 import datetime
-from Flight_prices_tracker.config_private_keys import *
+from config_private_keys import *
 
 # RAPID_API
 base_url = "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/"
@@ -28,7 +28,7 @@ days_to_request = 3
 price_threshold = 15000
 max_retries = 3
 json_files_folder = "json_files"
-log_files_folder = "log_files"
+log_files_folder = "logs"
 json_file = f"{datetime.datetime.now().strftime('%Y-%m-%d')}_for_{city_from}-{city_to}_xxx.json"
 log_file = f"Logs_{datetime.datetime.now()}.log".replace(":", "-")
 pickle_file = 'pickled_date.txt'

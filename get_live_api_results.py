@@ -13,7 +13,7 @@ import time
 import pymongo
 import requests
 from bson import json_util  # to record JSON to file after mongodb
-from Flight_prices_tracker.mongodb_methods import record_json_to_mongodb
+from mongodb_methods import record_json_to_mongodb
 
 
 def timer(logger: logging.Logger, wait_time: int = 60) -> None:
@@ -207,17 +207,22 @@ def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country
     return all_results
 
 
-def record_results_into_file(file_abs_path: str, results: iter, logger: logging.Logger)-> None:
+def record_results_into_file(file_folder_path: str, file_name: str, results: iter, logger: logging.Logger)-> None:
     """
     Records dict into json file
     """
 
     stage_name = "RECORD_RESULTS_INTO_FILE"
 
+    # create files folder if not exists
+    if not os.path.exists(file_folder_path):
+        os.mkdir(file_folder_path)
+    file_abs_path = os.path.join(file_folder_path, file_name)
+
     with open(file_abs_path, "w") as file:
         # json_util encoder after pymongo (else "not JSON serializable" error)
         json.dump(results, indent=4, fp=file, default=json_util.default)
-    logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split('/')[-1]}'.")
+    logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split(os.sep())[-1]}'.")
 
 
 def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
@@ -322,8 +327,10 @@ def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers:
 
         # record results into file
         if save_to_file:
-            file_abs_path = os.path.join(os.getcwd(), json_files_folder, json_file.replace('xxx', outbound_date))
-            record_results_into_file(file_abs_path=file_abs_path,
+            file_folder_path = os.path.join(os.getcwd(), json_files_folder)
+            file_name = json_file.replace('xxx', outbound_date)
+            record_results_into_file(file_folder_path=file_folder_path,
+                                     file_name=file_name,
                                      results=all_results,
                                      logger=logger)
         # find next date
