@@ -1,5 +1,6 @@
 import pymongo
 import logging
+from service_methods import retry
 
 
 def connect_to_mongodb(mongodb_instance: str, mongodb: str, mongodb_collection: str,
@@ -15,19 +16,25 @@ def connect_to_mongodb(mongodb_instance: str, mongodb: str, mongodb_collection: 
     return collection
 
 
-def record_json_to_mongodb(json_data: list, collection: pymongo.collection.Collection, logger: logging.Logger)->bool:
+def record_json_to_mongodb(json_data: list, collection: pymongo.collection.Collection,
+                           max_retries: int, logger: logging.Logger)->bool or None:
     """
     Records JSON data to MongoDB
     """
     stage_name = "MONGODB"
-    result = collection.insert_many(json_data)
-    if result.acknowledged:
-        logger.info(f"{stage_name} - Recorded {len(json_data)} new results. Overall documents count - {collection.count_documents({})}")
-        logger.debug(f"{stage_name} - Newly recorded IDS: {', '.join([str(id) for id in result.inserted_ids])}")
-        return True
-    else:
-        logger.error(f"{stage_name} - JSON was not recorded to DB")
-        return False
+    try_number = 0
+
+    while True:
+        result = collection.insert_many(json_data)
+        if result.acknowledged:
+            logger.info(f"{stage_name} - Recorded {len(json_data)} new results. "
+                        f"Overall documents count - {collection.count_documents({})}")
+            logger.debug(f"{stage_name} - Newly recorded IDS: {', '.join([str(id) for id in result.inserted_ids])}")
+            return True
+        else:
+            try_number += 1
+            err = f"{stage_name} - JSON was not recorded to DB, result is not acknowledged"
+            retry(stage_name, try_number, max_retries, err, logger)
 
 
 def find_flights_with_low_prices(threshold: int, search_date: str, collection: pymongo.collection.Collection,
@@ -63,7 +70,7 @@ def find_flights_with_low_prices(threshold: int, search_date: str, collection: p
             if v < threshold:
                 flights_with_low_prices.append(k)
 
-    logger.info(f"Found {len(flights_with_low_prices)} flights with prices lower than {threshold}")
+    logger.info(f"{stage_name} - Found {len(flights_with_low_prices)} flights with prices lower than {threshold}")
 
     # return all flight data for resulted flights
     flights_data_pipeline = []  # TODO - request flights data from MongoDB
