@@ -178,25 +178,30 @@ def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country
     return all_results
 
 
-def record_results_into_file(file_folder_path: str, file_name: str, results: iter, logger: logging.Logger)-> None:
+def record_results_into_file(file_folder_path: str, file_name: str, results: iter,
+                             max_retries: int, logger: logging.Logger)-> None:
     """
     Records dict into json file
     """
 
     stage_name = "RECORD_RESULTS_INTO_FILE"
+    try_number = 0
 
     # create files folder if not exists
     if not os.path.exists(file_folder_path):
         os.mkdir(file_folder_path)
     file_abs_path = os.path.join(file_folder_path, file_name)
 
-    try:
-        with open(file_abs_path, "w") as file:
-            # json_util encoder after pymongo (else "not JSON serializable" error)
-            json.dump(results, indent=4, fp=file, default=json_util.default)
-        logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split(os.path.sep)[-1]}'.")
-    except Exception as exc:
-        logger.error(f"{stage_name} - Occurred exception '{exc}' while writing file '{file_name}'")
+    while True:
+        try:
+            with open(file_abs_path, "w") as file:
+                # json_util encoder after pymongo (else "not JSON serializable" error)
+                json.dump(results, indent=4, fp=file, default=json_util.default)
+            logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split(os.path.sep)[-1]}'.")
+            return
+        except Exception as exc:
+            try_number += 1
+            retry(stage_name, try_number, max_retries, exc, logger)
 
 
 def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
@@ -307,6 +312,7 @@ def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers:
             record_results_into_file(file_folder_path=file_folder_path,
                                      file_name=file_name,
                                      results=all_results,
+                                     max_retries=max_retries,
                                      logger=logger)
         # find next date
         next_outbound_date_datetime = outbound_date_datetime + datetime.timedelta(days=1)
