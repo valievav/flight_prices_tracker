@@ -240,19 +240,6 @@ def unpickle_data(file_name: str, logger: logging.Logger) -> iter:
         logger.warning(f"{stage_name} - Pickled file is not found")
 
 
-def get_pickled_outbound_date(pickle_file: str, city_from: str, city_to: str, logger: logging.Logger)-> str or None:
-    """
-    Retrieves pickled date from pickled file
-    """
-
-    pickled_data = unpickle_data(file_name=pickle_file,
-                                 logger=logger)
-
-    if pickled_data:
-        pickled_outbound_date = pickled_data[f"{city_from}-{city_to}"]
-        return pickled_outbound_date
-
-
 def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers: dict, cabin_class: str,
                             country: str, currency: str, locale_lang: str, city_from: str, city_to: str,
                             country_from: str, country_to: str, outbound_date: str, adults_count: int, max_retries: int,
