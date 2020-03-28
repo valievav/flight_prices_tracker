@@ -212,24 +212,12 @@ def record_results_into_file(file_folder_path: str, file_name: str, results: ite
 
 def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
     """
-    Pickles data into file as dictionary if key doesn't exists, else - updates pickled data
+    Creates new file with pickled data is not exists else updates it
     """
 
     stage_name = "PICKLE DATA"
 
-    # get pickled data
-    with open(file_name, "rb") as file:
-        try:
-            pickled_data = pickle.load(file)
-        except EOFError:
-            pickled_data = None
-
-    # update pickled data if exists the same key
-    if pickled_data:
-        logger.debug(f"{stage_name} - Updating pickled data - {pickled_data} with new value {data_to_pickle}")
-        data_to_pickle = {**pickled_data, **data_to_pickle}  # 2nd dict overwrites values for common keys
-
-    # record new data or updated data into file
+    # record new file or update existing
     with open(file_name, "wb") as file:
         pickle.dump(data_to_pickle, file, protocol=pickle.HIGHEST_PROTOCOL)
         logger.info(f"{stage_name} - '{file_name}' content: {data_to_pickle}")
@@ -243,13 +231,13 @@ def unpickle_data(file_name: str, logger: logging.Logger) -> iter:
     stage_name = "UNPICKLE DATA"
 
     # retrieve pickled data if exists
-    with open(file_name, "rb") as file:
-        try:
+    try:
+        with open(file_name, "rb") as file:
             data = pickle.load(file)
             logger.debug(f"{stage_name} - Unpickled {data} from '{file_name}'")
             return data
-        except EOFError:
-            return None
+    except FileNotFoundError:
+        logger.warning(f"{stage_name} - Pickled file is not found")
 
 
 def get_pickled_outbound_date(pickle_file: str, city_from: str, city_to: str, logger: logging.Logger)-> str or None:

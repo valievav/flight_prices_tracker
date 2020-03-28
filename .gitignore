@@ -3,8 +3,11 @@
 config_private_keys.py
 
 # log & json files folder
+.idea/
+_pycache_/
 logs/
 json_files/
+pickled_date.pickle
 
 # OS generated files #
 ######################

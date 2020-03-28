@@ -32,6 +32,6 @@ json_files_folder = "json_files"
 log_files_folder = "logs"
 json_file = f"{datetime.datetime.now().strftime('%Y-%m-%d')}_for_{city_from}-{city_to}_xxx.json"
 log_file = f"Logs_{datetime.datetime.now()}.log".replace(":", "-")
-pickle_file = 'pickled_date.txt'
+pickle_file = 'pickled_date.pickle'
 save_to_file = True
 log_files_to_keep = 10
