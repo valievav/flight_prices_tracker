@@ -6,7 +6,7 @@ import os
 from custom_logger import create_logger
 from files_cleaner import files_cleaner
 from get_live_api_results import get_api_data_for_n_days
-from mongodb_methods import connect_to_mongodb, find_flights_with_low_prices
+from mongodb_methods import connect_to_mongodb, find_flights_under_threshold_price
 from config import *
 
 
@@ -44,13 +44,14 @@ def main():
                             json_file=json_file,
                             collection=collection,
                             logger=logger,
-                            save_to_file=save_to_file)
+                            save_to_file=save_to_file,
+                            live_api_mode=live_api_mode)
 
     # find flights with price < threshold
-    find_flights_with_low_prices(threshold=price_threshold,
-                                 search_date=outbound_date,
-                                 collection=collection,
-                                 logger=logger)
+    find_flights_under_threshold_price(threshold=price_threshold,
+                                       search_date=outbound_date,
+                                       collection=collection,
+                                       logger=logger)
 
     # clean up log files
     log_path_to_clean = os.path.join(cwd, log_files_folder)

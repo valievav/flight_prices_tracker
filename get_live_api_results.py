@@ -16,58 +16,51 @@ from mongodb_methods import record_json_to_mongodb
 from service_methods import timer, retry
 
 
-def get_airport_ids(base_url: str, headers: dict, currency: str, locale_lang: str,
-                    search_cities: list, search_countries: list, max_retries: int,
-                    logger: logging.Logger) -> list:
+def get_airport_id(base_url: str, headers: dict, currency: str, locale_lang: str,
+                   search_city: str, search_country: str, max_retries: int,
+                   logger: logging.Logger, element_from_matched_list: int = 0) -> str:
     """
-    Gets list of airport ids, where each element is 1st airport for search city-country combination responses
-    (1 city-country pair can have several airports).
+    Gets 1st airport id by default for search city-country combination (1 city-country pair can have several airports).
     """
 
     stage_name = "GET_PLACE_ID"
-    try_number = 0
+    try_number_resp = 0
+    try_number_n = 0
 
-    # compare if length of search lists is equal
-    if len(search_cities) != len(search_countries):
-        logger.warning(f"City and country lists length are different - {len(search_cities)} vs {len(search_countries)}."
-                       f"Cannot match all elements - please fix.")
+    # get airport_id for search city-country pair
+    url = f"{base_url}autosuggest/v1.0/{currency}/{currency}/{locale_lang}/"
+    querystring = {"query": {search_city}}
 
-    airport_ids = []
+    # rerun if response unsuccessful or can't extract n-th element
+    while True:
+        try:
+            response = requests.request("GET", url, headers=headers, params=querystring)
+            result = json.loads(response.text)
+        except Exception as exc:
+            try_number_resp += 1
+            retry(stage_name, try_number_resp, max_retries, exc, logger=logger)
+        else:
+            # get all airport ids
+            location_airport_ids = []
+            for location_data in result['Places']:
+                if location_data['CountryName'].lower() == search_country.lower():
+                    location_airport_ids.append(location_data['PlaceId'])
 
-    # get airport_ids for each search city-country pair
-    for (search_city, search_country) in zip(search_cities, search_countries):
+            if not location_airport_ids:
+                logger.critical(f"{stage_name} - Place_ids list is empty! Exiting the program.")
+                sys.exit()
 
-        url = f"{base_url}autosuggest/v1.0/{currency}/{currency}/{locale_lang}/"
-        querystring = {"query": {search_city}}
-
-        # rerun if response unsuccessful
-        while True:
+            # return n-th elem
             try:
-                response = requests.request("GET", url, headers=headers, params=querystring)
-                result = json.loads(response.text)
+                airport_id = location_airport_ids[element_from_matched_list]
             except Exception as exc:
-                try_number += 1
-                retry(stage_name, try_number, max_retries, exc, logger=logger)
+                try_number_n += 1
+                retry(stage_name, try_number_n, max_retries, exc, logger=logger)
             else:
-                # get all airport ids
-                location_airport_ids = []
-                for location_data in result['Places']:
-                    if location_data['CountryName'].lower() == search_country.lower():
-                        location_airport_ids.append(location_data['PlaceId'])
-
-                if not location_airport_ids:
-                    logger.critical(f"{stage_name} - Place_ids list is empty! Exiting the program.")
-                    sys.exit()
-
-                # return 1st elem
-                airport_id = location_airport_ids[0]
                 logger.debug(f"{stage_name} - Available codes for {search_city}-{search_country}: {location_airport_ids}. "
                              f"Going to use 1st element from the list.")
                 logger.info(f"{stage_name} - {search_city}-{search_country} airport id - '{airport_id}'")
-                airport_ids.append(airport_id)
-                break
-
-    return airport_ids
+                return airport_id
 
 
 def live_prices_create_session(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
@@ -127,7 +120,7 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
                 timer(wait_time=10, logger=logger)  # wait for all results to be updated
                 continue
             logger.info(f'{stage_name} - Got response status - {result["Status"]}. '
-                        f'Recorded {len(all_results)} result requests. Moving on to the next stage.')
+                        f'Recorded {len(all_results)} result requests.')
             break
         else:
             try_number += 1
@@ -137,22 +130,11 @@ def live_prices_pull_results(base_url: str, headers: dict, session_key: str,
 
 
 def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country: str, currency: str,
-                         locale_lang: str, city_from: str, city_to: str, country_from: str, country_to: str,
-                         outbound_date: str, adults_count: int, max_retries: int, logger: logging.Logger)-> iter:
+                         locale_lang: str, airport_id_orig: str, airport_id_dest: str, outbound_date: str,
+                         adults_count: int, max_retries: int, logger: logging.Logger)-> iter:
     """
-    Performs 3 steps to get Live API results: get city_id_from & city_id_to, create Live API session and
-    retrieve API results. Returns API response as an iterable.
+    Performs 2 steps to get Live API results: creates Live API session and retrieves API results
     """
-
-    # get city ids
-    city_id_from, city_id_to = get_airport_ids(base_url=base_url,
-                                               headers=headers,
-                                               currency=currency,
-                                               locale_lang=locale_lang,
-                                               search_cities=[city_from, city_to],
-                                               search_countries=[country_from, country_to],
-                                               max_retries=max_retries,
-                                               logger=logger)
 
     # create session
     session_key = live_prices_create_session(base_url=base_url,
@@ -161,8 +143,8 @@ def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country
                                              country=country,
                                              currency=currency,
                                              locale_lang=locale_lang,
-                                             origin_place=city_id_from,
-                                             destination_place=city_id_to,
+                                             origin_place=airport_id_orig,
+                                             destination_place=airport_id_dest,
                                              outbound_date=outbound_date,
                                              adults_count=adults_count,
                                              max_retries=max_retries,
@@ -178,14 +160,39 @@ def get_live_api_results(base_url: str, headers: dict, cabin_class: str, country
     return all_results
 
 
-def record_results_into_file(file_folder_path: str, file_name: str, results: iter,
-                             max_retries: int, logger: logging.Logger)-> None:
+def get_browse_quotes(base_url: str, headers: dict, country: str, currency: str,
+                      locale_lang: str, airport_id_orig: str, airport_id_dest: str,
+                      outbound_date: str, max_retries: int, logger: logging.Logger)-> list:
+    """
+    Runs Browse Quotes API call, which retrieves the cheapest quotes from Skyskanner cache prices
+    """
+
+    stage_name = "CACHED_QUOTE"
+    try_number = 0
+
+    url = f"{base_url}browsequotes/v1.0/{country}/{currency}/{locale_lang}/{airport_id_orig}/{airport_id_dest}/{outbound_date}"
+    all_results = []
+
+    # rerun if response unsuccessful
+    while True:
+        response = requests.request("GET", url, headers=headers)
+        result = json.loads(response.text)
+
+        if response.status_code == 200 and len(result) != 0:
+            logger.info(f'{stage_name} - Received result.')
+            all_results.append(result)
+            return all_results
+        else:
+            try_number += 1
+            retry(stage_name, try_number, max_retries, f"{response.status_code} - {response.content}", logger=logger)
+
+
+def record_results_into_file(file_folder_path: str, file_name: str, results: iter, logger: logging.Logger)-> None:
     """
     Records dict into json file
     """
 
     stage_name = "RECORD_RESULTS_INTO_FILE"
-    try_number = 0
 
     # create files folder if not exists
     if not os.path.exists(file_folder_path):
@@ -200,8 +207,7 @@ def record_results_into_file(file_folder_path: str, file_name: str, results: ite
             logger.info(f"{stage_name} - Recorded results into '{file_abs_path.split(os.path.sep)[-1]}'.")
             return
         except Exception as exc:
-            try_number += 1
-            retry(stage_name, try_number, max_retries, exc, logger)
+            logger.warning(f"{stage_name} - Could'n record data into file, occurred exception - '{exc}")
 
 
 def pickle_data(file_name: str, data_to_pickle: iter, logger: logging.Logger) -> None:
@@ -263,11 +269,17 @@ def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers:
                             country: str, currency: str, locale_lang: str, city_from: str, city_to: str,
                             country_from: str, country_to: str, outbound_date: str, adults_count: int, max_retries: int,
                             json_files_folder: str, json_file: str, collection: pymongo.collection.Collection,
-                            logger: logging.Logger, save_to_file: bool = False)-> None:
+                            live_api_mode: bool, logger: logging.Logger, save_to_file: bool = False)-> None:
     """
-    Runs get_live_api_results for N days, pickles last used date (to continue where left off
-    in case of interruption), records data to MongoDB and into file if passed True flag.
+    Gets airport origin and destination IDs, gets Live API results (all flights, up to date)
+    or Browse Quotes (one cheapest flight from the cache) for N days,
+    pickles last used date (to continue where left off in case of interruption),
+    records data to MongoDB and into file (depends on the flag).
     """
+
+    # log the mode program is running in
+    logger.info(f"PROGRAM IS RUNNING IN MODE ->> "
+                f"{'LIVE API (getting most recent data)' if live_api_mode else 'BROWSE QUOTES (getting cached data)'}")
 
     for n in range(days):
 
@@ -283,21 +295,50 @@ def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers:
         if datetime.datetime.now().date() > outbound_date_datetime:
             sys.exit(f"Outbound date {outbound_date_datetime} is in the past. Please fix.")
 
-        # get LIVE API results
-        all_results = get_live_api_results(base_url=base_url,
-                                           headers=headers,
-                                           cabin_class=cabin_class,
-                                           country=country,
-                                           currency=currency,
-                                           locale_lang=locale_lang,
-                                           city_from=city_from,
-                                           city_to=city_to,
-                                           country_from=country_from,
-                                           country_to=country_to,
-                                           outbound_date=outbound_date,
-                                           adults_count=adults_count,
-                                           max_retries=max_retries,
-                                           logger=logger)
+        # get airport IDs origin & destination
+        airport_id_orig = get_airport_id(base_url=base_url,
+                                         headers=headers,
+                                         currency=currency,
+                                         locale_lang=locale_lang,
+                                         search_city=city_from,
+                                         search_country=country_from,
+                                         max_retries=max_retries,
+                                         logger=logger)
+
+        airport_id_dest = get_airport_id(base_url=base_url,
+                                         headers=headers,
+                                         currency=currency,
+                                         locale_lang=locale_lang,
+                                         search_city=city_to,
+                                         search_country=country_to,
+                                         max_retries=max_retries,
+                                         logger=logger)
+
+        # get LIVE API results OR Browse Quotes
+        if live_api_mode:
+            all_results = get_live_api_results(base_url=base_url,
+                                               headers=headers,
+                                               cabin_class=cabin_class,
+                                               country=country,
+                                               currency=currency,
+                                               locale_lang=locale_lang,
+                                               airport_id_orig=airport_id_orig,
+                                               airport_id_dest=airport_id_dest,
+                                               outbound_date=outbound_date,
+                                               adults_count=adults_count,
+                                               max_retries=max_retries,
+                                               logger=logger)
+        else:
+            all_results = get_browse_quotes(base_url=base_url,
+                                            headers=headers,
+                                            country=country,
+                                            currency=currency,
+                                            locale_lang=locale_lang,
+                                            airport_id_orig=airport_id_orig,
+                                            airport_id_dest=airport_id_dest,
+                                            outbound_date=outbound_date,
+                                            max_retries=max_retries,
+                                            logger=logger)
 
         # record results into db
         record_json_to_mongodb(json_data=all_results,
@@ -312,7 +353,6 @@ def get_api_data_for_n_days(days: int, pickle_file: str, base_url: str, headers:
             record_results_into_file(file_folder_path=file_folder_path,
                                      file_name=file_name,
                                      results=all_results,
-                                     max_retries=max_retries,
                                      logger=logger)
         # find next date
         next_outbound_date_datetime = outbound_date_datetime + datetime.timedelta(days=1)

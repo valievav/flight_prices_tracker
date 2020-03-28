@@ -2,6 +2,7 @@ import datetime
 from config_private_keys import *
 
 # RAPID_API
+live_api_mode = False
 base_url = "https://skyscanner-skyscanner-flight-search-v1.p.rapidapi.com/apiservices/"
 headers = {'x-rapidapi-host': "skyscanner-skyscanner-flight-search-v1.p.rapidapi.com",
            'x-rapidapi-key': rapidapi_key}  # use private api key
@@ -21,7 +22,7 @@ currency = "UAH"
 locale_lang = "en-US"
 cabin_class = "Economy"
 adults_count = 1
-outbound_date = "2020-05-01"
+outbound_date = "2020-05-20"
 
 # ADDITIONAL_PARAMS
 days_to_request = 3
