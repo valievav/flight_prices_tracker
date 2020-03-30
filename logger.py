@@ -4,7 +4,7 @@ Records logs both into file and prints into the console
 
 import logging
 import os
-from custom_formatter import CustomFormatter
+from logger_formatter import CustomFormatter
 
 
 def create_logger(log_file_folder_path: str, log_file_name: str, level=logging.DEBUG)-> logging.Logger:

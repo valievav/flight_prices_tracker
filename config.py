@@ -22,7 +22,7 @@ currency = "UAH"
 locale_lang = "en-US"
 cabin_class = "Economy"
 adults_count = 1
-outbound_date = "2020-05-20"
+outbound_date = "2020-07-21"
 
 # ADDITIONAL_PARAMS
 days_to_request = 3

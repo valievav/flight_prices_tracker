@@ -3,11 +3,11 @@ Gets Live API results, records them into MongoDB, records into file and finds mi
 """
 
 import os
-from custom_logger import create_logger
-from files_cleaner import files_cleaner
-from get_live_api_results import get_api_data_for_n_days
-from mongodb_methods import connect_to_mongodb, find_flights_under_threshold_price
 from config import *
+from logger import create_logger
+from get_api_results_for_n_days import get_api_results_for_n_days
+from mongodb_methods import connect_to_mongodb, find_flights_under_threshold_price
+from service_methods import files_cleaner
 
 
 def main():
@@ -25,27 +25,27 @@ def main():
                                     logger=logger)
 
     # get LIVE API results, record values to db
-    get_api_data_for_n_days(days=days_to_request,
-                            pickle_file=pickle_file,
-                            base_url=base_url,
-                            headers=headers,
-                            cabin_class=cabin_class,
-                            country=country,
-                            currency=currency,
-                            locale_lang=locale_lang,
-                            city_from=city_from,
-                            city_to=city_to,
-                            country_from=country_from,
-                            country_to=country_to,
-                            outbound_date=outbound_date,
-                            adults_count=adults_count,
-                            max_retries=max_retries,
-                            json_files_folder=json_files_folder,
-                            json_file=json_file,
-                            collection=collection,
-                            logger=logger,
-                            save_to_file=save_to_file,
-                            live_api_mode=live_api_mode)
+    get_api_results_for_n_days(days=days_to_request,
+                               pickle_file=pickle_file,
+                               base_url=base_url,
+                               headers=headers,
+                               cabin_class=cabin_class,
+                               country=country,
+                               currency=currency,
+                               locale_lang=locale_lang,
+                               city_from=city_from,
+                               city_to=city_to,
+                               country_from=country_from,
+                               country_to=country_to,
+                               outbound_date=outbound_date,
+                               adults_count=adults_count,
+                               max_retries=max_retries,
+                               json_files_folder=json_files_folder,
+                               json_file=json_file,
+                               collection=collection,
+                               logger=logger,
+                               save_to_file=save_to_file,
+                               live_api_mode=live_api_mode)
 
     # find flights with price < threshold
     find_flights_under_threshold_price(threshold=price_threshold,
